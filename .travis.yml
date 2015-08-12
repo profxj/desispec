@@ -6,6 +6,7 @@ language: c
 
 os:
     - linux
+    - osx
 
 # Setting sudo to false opts in to Travis-CI container-based builds.
 sudo: false
@@ -41,6 +42,13 @@ env:
         - PYTHON_VERSION=2.7 SETUP_CMD='egg_info'
 
 matrix:
+    # Don't wait for allowed failures.
+    fast_finish: true
+
+    # OS X support is still experimental, so don't penalize failuures.
+    allow_failures:
+        - os: osx
+
     include:
 
         # Check for sphinx doc build warnings - we do this first because it
