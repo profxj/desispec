@@ -20,14 +20,17 @@ fi
 # CORE DEPENDENCIES
 conda install --yes pytest Cython jinja2 psutil pyyaml requests
 
+# NUMPY scipy
+conta install --yes numpy=$NUMPY_VERSION scipy=$SCIPY_VERSION
+
 # ASTROPY
 if [[ $ASTROPY_VERSION == development ]]
 then
   $PIP_INSTALL git+http://github.com/astropy/astropy.git#egg=astropy
-  export CONDA_INSTALL="conda install --yes python=$PYTHON_VERSION numpy=$NUMPY_VERSION scipy=$SCIPY_VERSION"
+  export CONDA_INSTALL="conda install --yes numpy=$NUMPY_VERSION scipy=$SCIPY_VERSION"
 else
-  conda install --yes numpy=$NUMPY_VERSION
-  export CONDA_INSTALL="conda install --yes python=$PYTHON_VERSION numpy=$NUMPY_VERSION scipy=$SCIPY_VERSION astropy=$ASTROPY_VERSION"
+  conda install --yes numpy=$NUMPY_VERSION scipy=$SCIPY_VERSION astropy=$ASTROPY_VERSION
+  export CONDA_INSTALL="conda install --yes numpy=$NUMPY_VERSION scipy=$SCIPY_VERSION astropy=$ASTROPY_VERSION"
 fi
 
 # Now set up shortcut to conda install command to make sure the Python and Numpy
