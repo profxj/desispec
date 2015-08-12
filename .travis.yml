@@ -27,7 +27,7 @@ env:
         # to repeat them for all configurations.
         - NUMPY_VERSION=1.9
         - SCIPY_VERSION=0.14
-        - ASTROPY_VERSION=stable
+        - ASTROPY_VERSION=1.0.4
         - SPHINX_VERSION=1.3
         - CONDA_INSTALL='conda install -c astropy-ci-extras --yes'
         - PIP_INSTALL='pip install'
