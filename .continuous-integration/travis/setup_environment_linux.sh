@@ -11,4 +11,4 @@ conda update --yes conda
 # in .travis.yml
 
 # Install Python dependencies
-source "$( dirname "${BASH_SOURCE[0]}" )"/setup_dependencies_common.sh
+source "$( dirname "${BASH_SOURCE[0]}" )"/setup_environment_common.sh
