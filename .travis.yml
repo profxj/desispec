@@ -1,4 +1,8 @@
-language: python
+# We set the language to c because python isn't supported on the MacOS X nodes
+# on Travis. However, the language ends up being irrelevant anyway, since we
+# install Python ourselves using conda.
+# language: python
+language: c
 
 os:
     - linux
@@ -14,9 +18,9 @@ addons:
             - graphviz
             - texlive-latex-extra
             - dvipng
-python:
+# python:
     # - 2.6
-    - 2.7
+    # - 2.7
     # - 3.3
     # - 3.4
     # This is just for "egg_info".  All other builds are explicitly given in the matrix
@@ -34,26 +38,29 @@ env:
         - OPTIONAL_DEPS=false
         - MAIN_CMD='python setup.py'
     matrix:
-        - SETUP_CMD='egg_info'
+        - PYTHON_VERSION=2.7 SETUP_CMD='egg_info'
 
 matrix:
     include:
 
         # Check for sphinx doc build warnings - we do this first because it
         # runs for a long time
-        - python: 2.7
-          env: SETUP_CMD='build_sphinx'
+        - os: linux
+          env: PYTHON_VERSION=2.7 SETUP_CMD='build_sphinx'
           # OPTIONAL_DEPS needed because the plot_directive in sphinx needs them
           # -w is an astropy extension
 
         # Do a bdist_egg compile.  This will catch things like syntax errors
         # without needing to do a full python setup.py test
-        - python: 2.7
-          env: SETUP_CMD='bdist_egg'
+        - os: linux
+          env: PYTHON_VERSION=2.7 SETUP_CMD='bdist_egg'
 
         # Try all python versions with the latest numpy
-        - python: 2.7
-          env: SETUP_CMD='test'
+        - os: linux
+          env: PYTHON_VERSION=2.7 SETUP_CMD='test'
+
+        - os: osx
+          env: PYTHON_VERSION=2.7 SETUP_CMD='test'
         # - python: 3.3
         #   env: SETUP_CMD='test --open-files'
         # - python: 3.4
