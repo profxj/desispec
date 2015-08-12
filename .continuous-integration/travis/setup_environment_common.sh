@@ -21,7 +21,7 @@ fi
 conda install --yes pytest Cython jinja2 psutil pyyaml requests
 
 # NUMPY scipy
-conta install --yes numpy=$NUMPY_VERSION scipy=$SCIPY_VERSION
+conda install --yes numpy=$NUMPY_VERSION scipy=$SCIPY_VERSION
 
 # ASTROPY
 if [[ $ASTROPY_VERSION == development ]]
@@ -29,7 +29,7 @@ then
   $PIP_INSTALL git+http://github.com/astropy/astropy.git#egg=astropy
   export CONDA_INSTALL="conda install --yes numpy=$NUMPY_VERSION scipy=$SCIPY_VERSION"
 else
-  conda install --yes numpy=$NUMPY_VERSION scipy=$SCIPY_VERSION astropy=$ASTROPY_VERSION
+  conda install --yes astropy=$ASTROPY_VERSION
   export CONDA_INSTALL="conda install --yes numpy=$NUMPY_VERSION scipy=$SCIPY_VERSION astropy=$ASTROPY_VERSION"
 fi
 
