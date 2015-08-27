@@ -15,6 +15,7 @@ import scipy, scipy.sparse, scipy.ndimage
 import sys
 #debug
 #import pylab
+from xastropy.xutils import xdebug as xdb
 
 #rebin spectra into new wavebins. This should be equivalent to desispec.interpolation.resample_flux. So may not be needed here
 #But should move from here anyway.
@@ -269,8 +270,6 @@ def compute_flux_calibration(frame, stdfibers, input_model_wave,input_model_flux
 
         log.info("iter %d solving"%iteration)
         calibration=cholesky_solve(A.todense(),B)
-        #pylab.plot(wave,calibration)
-        #pylab.show()
         #sys.exit(12)
 
         log.info("iter %d fit smooth correction per fiber"%iteration)
@@ -387,6 +386,9 @@ def compute_flux_calibration(frame, stdfibers, input_model_wave,input_model_flux
     # need to do better here
     mask=(ccalibivar>0).astype(int)
 
+    #xdb.xplot(frame.wave,calibration)
+    #xdb.xplot(frame.wave,ccalibration[0])
+    #xdb.set_trace()
     # return calibration, calibivar, mask, ccalibration, ccalibivar
     return FluxCalib(stdstars.wave, ccalibration, ccalibivar, mask)
 

@@ -16,7 +16,6 @@ import scipy,scipy.sparse
 import sys
 from desispec.log import get_logger
 
-
 def compute_fiberflat(frame, nsig_clipping=4.) :
     """Compute fiber flat by deriving an average spectrum and dividing all fiber data by this average.
     Input data are expected to be on the same wavelenght grid, with uncorrelated noise.
@@ -95,7 +94,7 @@ def compute_fiberflat(frame, nsig_clipping=4.) :
 
 
     # test
-    #nfibers=20
+    nfibers=20
     nout_tot=0
     for iteration in range(20) :
 

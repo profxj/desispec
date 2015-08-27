@@ -41,6 +41,7 @@ def compute_sky(frame, fibermap, nsig_clipping=4.) :
     log.info("starting")
 
     skyfibers = np.where(fibermap["OBJTYPE"]=="SKY")[0]
+    skyfibers = skyfibers[skyfibers<500]
 
     nwave=frame.nwave
     nfibers=len(skyfibers)
