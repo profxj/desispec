@@ -323,3 +323,71 @@ class FiberFlat(object):
         #- if we define fiber ranges in the fits headers, correct header
         
         return result
+
+def make_qa(wave,meanspec):
+    """
+    Generate QA plots and files
+    """
+    from astropy.io import fits
+    from matplotlib import pyplot as plt
+    import matplotlib.gridspec as gridspec
+
+    # Mean spectrum
+    outfil = 'tmp_qa_mean_fiberflat.pdf'
+
+    # Starting with b-camera
+    # Might now grab from TRUTH in meta-data
+    true_spec_fil = '/Users/xavier/DESI/CALIBS/b-flat-phot_spec.fits'
+    hdu = fits.open(true_spec_fil)
+    true_flux = hdu[0].data
+    true_wave = hdu[2].data
+    true_dwv = np.median(np.abs(true_wave-np.roll(true_wave,1)))
+
+    # Model
+    model_dwv = np.median(np.abs(wave-np.roll(wave,1)))
+
+    # Scale
+    #scl = model_dwv/true_dwv
+    scl_wvmnx = (4400.,5000.)
+    true_idx = (true_wave >= scl_wvmnx[0]) & (true_wave <= scl_wvmnx[1])
+    model_idx = (wave >= scl_wvmnx[0]) & (wave <= scl_wvmnx[1])
+    scl = np.sum(true_flux[true_idx]) / np.sum(meanspec[model_idx]) * (true_dwv/model_dwv)
+    print('scale = {:g}'.format(scl))
+
+    #import pdb
+    #pdb.set_trace()
+
+    # Plot
+    fig = plt.figure(figsize=(8, 5.0))
+    gs = gridspec.GridSpec(2,1)
+
+    xmin,xmax = np.min(wave), np.max(wave)
+    # Simple spectrum plot
+    ax_flux = plt.subplot(gs[0])
+    ax_flux.plot(wave, meanspec, label='Model')
+    ax_flux.plot(true_wave,true_flux/scl, label='Truth')
+    ax_flux.get_xaxis().set_ticks([]) # Suppress labeling
+    ax_flux.set_ylabel('Counts')
+    ax_flux.set_xlim(xmin,xmax)
+    ax_flux.text(0.5, 0.05, 'FiberFlat Meanspec (b-camera)',
+        transform=ax_flux.transAxes, ha='center')
+
+    # Legend
+    legend = ax_flux.legend(loc='upper right', borderpad=0.3,
+                        handletextpad=0.3)#, fontsize='small')
+
+    # Residuals
+    ax_res = plt.subplot(gs[1])
+    ax_res.set_ylabel('Fractional Residuals')
+    ax_res.set_xlabel('Wavelength')
+    res = (meanspec - (true_flux/scl))/meanspec
+    rms = np.sqrt(np.sum(res**2)/len(res))
+    ax_res.set_ylim(-3.*rms, 3.*rms)
+    ax_res.scatter(true_wave,res, marker='o',s=1.)
+    ax_res.plot([xmin,xmax], [0.,0], 'g-')
+    ax_res.set_xlim(xmin,xmax)
+
+
+    # Finish
+    plt.tight_layout(pad=0.2,h_pad=0.0,w_pad=0.0)
+    plt.savefig(outfil)
