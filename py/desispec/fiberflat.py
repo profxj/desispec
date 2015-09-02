@@ -123,7 +123,8 @@ def compute_fiberflat(frame, nsig_clipping=4.) :
 
         log.info("iter %d solving"%iteration)
 
-        mean_spectrum=cholesky_solve(A.todense(),B)
+        #mean_spectrum=cholesky_solve(A.todense(),B)
+        mean_spectrum,ms_covar=cholesky_solve_and_invert(A.todense(),B)
 
         log.info("iter %d smoothing"%iteration)
 
@@ -212,7 +213,10 @@ def compute_fiberflat(frame, nsig_clipping=4.) :
         if bad.size>0 :
             mask[fiber,bad] += fiberflat_mask
 
-    return FiberFlat(wave, fiberflat, fiberflat_ivar, mask, mean_spectrum)    
+    # Covariance
+    ms_var=np.diagonal(ms_covar)*mean**2
+    # Return
+    return FiberFlat(wave, fiberflat, fiberflat_ivar, mask, mean_spectrum), ms_var
 
 
 def apply_fiberflat(frame, fiberflat):
@@ -324,7 +328,7 @@ class FiberFlat(object):
         
         return result
 
-def make_qa(wave,meanspec):
+def make_qa(wave,meanspec, ms_var, frac_res=False):
     """
     Generate QA plots and files
     """
@@ -354,8 +358,8 @@ def make_qa(wave,meanspec):
     scl = np.sum(true_flux[true_idx]) / np.sum(meanspec[model_idx]) * (true_dwv/model_dwv)
     print('scale = {:g}'.format(scl))
 
-    #import pdb
-    #pdb.set_trace()
+    # Error
+    ms_sig = np.sqrt(ms_var)
 
     # Plot
     fig = plt.figure(figsize=(8, 5.0))
@@ -365,6 +369,7 @@ def make_qa(wave,meanspec):
     # Simple spectrum plot
     ax_flux = plt.subplot(gs[0])
     ax_flux.plot(wave, meanspec, label='Model')
+    #ax_flux.plot(wave, ms_sig, label='Model Error')
     ax_flux.plot(true_wave,true_flux/scl, label='Truth')
     ax_flux.get_xaxis().set_ticks([]) # Suppress labeling
     ax_flux.set_ylabel('Counts')
@@ -378,12 +383,21 @@ def make_qa(wave,meanspec):
 
     # Residuals
     ax_res = plt.subplot(gs[1])
-    ax_res.set_ylabel('Fractional Residuals')
     ax_res.set_xlabel('Wavelength')
-    res = (meanspec - (true_flux/scl))/meanspec
-    rms = np.sqrt(np.sum(res**2)/len(res))
-    ax_res.set_ylim(-3.*rms, 3.*rms)
-    ax_res.scatter(true_wave,res, marker='o',s=1.)
+    if frac_res:
+        res = (meanspec - (true_flux/scl))/meanspec
+        rms = np.sqrt(np.sum(res**2)/len(res))
+        ax_res.set_ylim(-3.*rms, 3.*rms)
+        ax_res.set_ylabel('Fractional Residuals')
+        # Error
+        ax_res.plot(true_wave, 2.*ms_sig/meanspec, color='red')
+        ax_res.scatter(true_wave,res, marker='o',s=1.)
+    else:
+        sig_res = (meanspec - (true_flux/scl))/ms_sig
+        ax_res.scatter(true_wave, sig_res, marker='o',s=1.)
+        ax_res.set_ylabel(r'Residuals $\delta/\sigma$')
+        ax_res.set_ylim(-5., 5.)
+
     ax_res.plot([xmin,xmax], [0.,0], 'g-')
     ax_res.set_xlim(xmin,xmax)
 
