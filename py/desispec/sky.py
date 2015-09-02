@@ -41,7 +41,7 @@ def compute_sky(frame, fibermap, nsig_clipping=4.) :
     log.info("starting")
 
     skyfibers = np.where(fibermap["OBJTYPE"]=="SKY")[0]
-    skyfibers = skyfibers[skyfibers<500]
+    #skyfibers = skyfibers[skyfibers<500]
 
     nwave=frame.nwave
     nfibers=len(skyfibers)
@@ -133,7 +133,7 @@ def compute_sky(frame, fibermap, nsig_clipping=4.) :
     skyflux,skycovar=cholesky_solve_and_invert(A.todense(),B)
 
     #- sky inverse variance, but incomplete and not needed anyway
-    # skyvar=np.diagonal(skycovar)
+    skyvar=np.diagonal(skycovar)
     # skyivar=(skyvar>0)/(skyvar+(skyvar==0))
 
     # Use diagonal of skycovar convolved with mean resolution of all fibers
@@ -157,7 +157,7 @@ def compute_sky(frame, fibermap, nsig_clipping=4.) :
     # need to do better here
     mask = (cskyivar==0).astype(np.uint32)
 
-    return SkyModel(frame.wave.copy(), cskyflux, cskyivar, mask)
+    return SkyModel(frame.wave.copy(), cskyflux, cskyivar, mask)#, skyflux, skyvar
 
 class SkyModel(object):
     def __init__(self, wave, flux, ivar, mask, header=None):
@@ -205,3 +205,88 @@ def subtract_sky(frame, skymodel) :
     frame.mask |= skymodel.mask
 
     log.info("done")
+
+def make_model_qa(wave, sky_model, sky_var, true_wave, true_sky, 
+    frac_res=False, outfil=None):
+    """
+    Generate QA plots and files
+    Parameters:
+    true_wave, true_sky:  ndarrays
+      Photons/s from simspec file
+    """
+    from astropy.io import fits
+    from matplotlib import pyplot as plt
+    import matplotlib.gridspec as gridspec
+    import sys, os
+    #
+    sys.path.append(os.path.abspath("/Users/xavier/DESI/desisim_v0.4.1/desisim/"))
+    import interpolation as desi_interp
+
+
+    # Mean spectrum
+    if outfil is None:
+        outfil = 'tmp_qa_mean_sky.pdf'
+
+    # Resample
+    dw = wave[1]-wave[0]
+    ww = wave[0] + np.arange(len(wave))*dw
+    true_flux = desi_interp.resample_flux(ww, true_wave, true_sky)
+    #import pdb
+    #pdb.set_trace()
+
+    # Scale
+    scl = np.median(sky_model/true_flux)
+    print('scale = {:g}'.format(scl))
+
+    # Error
+    sky_sig = np.sqrt(sky_var)
+
+    # Plot
+    fig = plt.figure(figsize=(8, 5.0))
+    gs = gridspec.GridSpec(3,1)
+
+    xmin,xmax = np.min(wave), np.max(wave)
+    # Simple spectrum plot
+    ax_flux = plt.subplot(gs[0])
+    ax_flux.plot(wave, sky_model, label='Model')
+    #ax_flux.plot(wave, sky_sig, label='Model Error')
+    ax_flux.plot(wave,true_flux*scl, label='Truth')
+    ax_flux.get_xaxis().set_ticks([]) # Suppress labeling
+    ax_flux.set_ylabel('Counts')
+    ax_flux.set_xlim(xmin,xmax)
+    ax_flux.text(0.5, 0.85, 'Sky Meanspec',
+        transform=ax_flux.transAxes, ha='center')
+
+    # Legend
+    legend = ax_flux.legend(loc='upper right', borderpad=0.3,
+                        handletextpad=0.3)#, fontsize='small')
+
+    # Residuals
+    scatt_sz = 0.5
+    ax_res = plt.subplot(gs[1])
+    ax_res.get_xaxis().set_ticks([]) # Suppress labeling
+    res = (sky_model - (true_flux*scl))/(true_flux*scl)
+    rms = np.sqrt(np.sum(res**2)/len(res))
+    #ax_res.set_ylim(-3.*rms, 3.*rms)
+    ax_res.set_ylim(-2, 2)
+    ax_res.set_ylabel('Frac Res')
+    # Error
+    #ax_res.plot(true_wave, 2.*ms_sig/sky_model, color='red')
+    ax_res.scatter(wave,res, marker='o',s=scatt_sz)
+    ax_res.plot([xmin,xmax], [0.,0], 'g-')
+    ax_res.set_xlim(xmin,xmax)
+
+    # Relative to error
+    ax_sig = plt.subplot(gs[2])
+    ax_sig.set_xlabel('Wavelength')
+    sig_res = (sky_model - (true_flux*scl))/sky_sig
+    ax_sig.scatter(wave, sig_res, marker='o',s=scatt_sz)
+    ax_sig.set_ylabel(r'Res $\delta/\sigma$')
+    ax_sig.set_ylim(-5., 5.)
+    ax_sig.plot([xmin,xmax], [0.,0], 'g-')
+    ax_sig.set_xlim(xmin,xmax)
+
+
+    # Finish
+    plt.tight_layout(pad=0.1,h_pad=0.0,w_pad=0.0)
+    plt.savefig(outfil)
