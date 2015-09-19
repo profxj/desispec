@@ -6,6 +6,7 @@ import numpy as np
 from desispec.frame import Frame
 from desispec.fiberflat import FiberFlat
 from desispec.sky import SkyModel
+from desispec.image import Image
 import desispec.io
 from astropy.io import fits
 from shutil import rmtree
@@ -84,13 +85,14 @@ class TestIO(unittest.TestCase):
         nspec, nwave, ndiag = 5, 10, 3
         flux = np.random.uniform(size=(nspec, nwave))
         ivar = np.random.uniform(size=(nspec, nwave))
+        meta = dict(SPECMIN=0)
         mask_int = np.zeros((nspec, nwave), dtype=int)
         mask_uint = np.zeros((nspec, nwave), dtype=np.uint32)
         wave = np.arange(nwave)
         R = np.random.uniform( size=(nspec, ndiag, nwave) )
 
         for mask in (mask_int, mask_uint):
-            frx = Frame(wave, flux, ivar, mask, R)
+            frx = Frame(wave, flux, ivar, mask, R, meta=meta)
             desispec.io.write_frame(self.testfile, frx)
             frame = desispec.io.read_frame(self.testfile)
 
@@ -174,6 +176,52 @@ class TestIO(unittest.TestCase):
             self.assertEqual(c1.shape, c2.shape)
             self.assertTrue(np.all(c1 == c2))
 
+    def test_image_rw(self):
+        shape = (5,5)
+        pix = np.random.uniform(size=shape)
+        ivar = np.random.uniform(size=shape)
+        mask = np.random.randint(0, 3, size=shape)
+        img1 = Image(pix, ivar, mask, readnoise=1.0, camera='b0')
+        desispec.io.write_image(self.testfile, img1)
+        img2 = desispec.io.read_image(self.testfile)
+
+        #- Check output datatypes
+        self.assertEqual(img2.pix.dtype, np.float64)
+        self.assertEqual(img2.ivar.dtype, np.float64)
+        self.assertEqual(img2.mask.dtype, np.uint16)
+
+        #- Rounding from keeping np.float32 on disk means they aren't equal
+        self.assertFalse(np.all(img1.pix == img2.pix))
+        self.assertFalse(np.all(img1.ivar == img2.ivar))
+
+        #- But they should be close, and identical after float64->float32
+        self.assertTrue(np.allclose(img1.pix, img2.pix))
+        self.assertTrue(np.all(img1.pix.astype(np.float32) == img2.pix))
+        self.assertTrue(np.allclose(img1.ivar, img2.ivar))
+        self.assertTrue(np.all(img1.ivar.astype(np.float32) == img2.ivar))
+
+        #- masks should agree
+        self.assertTrue(np.all(img1.mask == img2.mask))
+        self.assertEqual(img1.readnoise, img2.readnoise)
+        self.assertEqual(img1.camera, img2.camera)
+        self.assertEqual(img2.mask.dtype, np.uint16)
+
+        #- should work with various kinds of metadata header input
+        meta = dict(BLAT='foo', BAR='quat', BIZ=1.0)
+        img1 = Image(pix, ivar, mask, readnoise=1.0, camera='b0', meta=meta)
+        desispec.io.write_image(self.testfile, img1)
+        img2 = desispec.io.read_image(self.testfile)
+        for key in meta:
+            self.assertEqual(meta[key], img2.meta[key], 'meta[{}] not propagated'.format(key))
+
+        #- img2 has meta as a FITS header instead of a dictionary;
+        #- confirm that works too
+        desispec.io.write_image(self.testfile, img2)
+        img3 = desispec.io.read_image(self.testfile)
+        for key in meta:
+            self.assertEqual(meta[key], img3.meta[key], 'meta[{}] not propagated'.format(key))
+
+
     def test_native_endian(self):
         for dtype in ('>f8', '<f8', '<f4', '>f4', '>i4', '<i4', '>i8', '<i8'):
             data1 = np.arange(100).astype(dtype)
@@ -211,6 +259,17 @@ class TestIO(unittest.TestCase):
                 'collab','spectro','redux',os.environ['PRODNAME'],'exposures',
                 kwargs['night'],'{expid:08d}'.format(**kwargs),
                 os.path.basename(filenames2[k])))
+        #
+        # Make sure that all required inputs are set.
+        #
+        with self.assertRaises(ValueError) as cm:
+            foo = desispec.io.findfile('stdstars',expid=2,spectrograph=0)
+        the_exception = cm.exception
+        self.assertEqual(the_exception.message, "Required input 'night' is not set for type 'stdstars'!")
+        with self.assertRaises(ValueError) as cm:
+            foo = desispec.io.findfile('brick',brickid='3338p190')
+        the_exception = cm.exception
+        self.assertEqual(the_exception.message, "Required input 'band' is not set for type 'brick'!")
 
     @unittest.skipUnless(os.path.exists(os.path.join(os.environ['HOME'],'.netrc')),"No ~/.netrc file detected.")
     def test_download(self):
@@ -222,6 +281,21 @@ class TestIO(unittest.TestCase):
         paths = desispec.io.download(filename)
         self.assertEqual(paths[0],filename)
         self.assertTrue(os.path.exists(paths[0]))
+        #
+        # Deliberately test a non-existent file.
+        #
+        filename = desispec.io.findfile('sky',expid=2,night='20150510',camera='b9',spectrograph=9)
+        paths = desispec.io.download(filename)
+        self.assertIsNone(paths[0])
+        # self.assertFalse(os.path.exists(paths[0]))
+
+    def test_memcrc(self):
+        test_strings = ('The quick brown fox jumped over the lazy dog.',
+            "The sixth sick sheik's sixth sheep's sick.",
+            'Jackdaws love my big sphinx of quartz.')
+        test_results = (2142034932,2348585565,358631216)
+        for k,t in enumerate(test_strings):
+            self.assertEqual(desispec.io.memcrc(t),test_results[k])
 
 #- This runs all test* functions in any TestCase class in this file
 if __name__ == '__main__':
