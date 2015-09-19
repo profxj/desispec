@@ -157,6 +157,32 @@ def compute_sky(frame, fibermap, nsig_clipping=4.) :
     # need to do better here
     mask = (cskyivar==0).astype(np.uint32)
 
+    # ###
+    # Check sky flux here
+    from scipy.stats import chisqprob
+
+    qa_dict = {}
+    qa_dict['SKYSUB'] = {}
+    qa_dict['SKYSUB']['PCHI_FIB'] = 0.95
+
+    # Subtract
+    res = flux - cskyflux # Residuals
+    res_ivar = util.combine_ivar(current_ivar, cskyivar) 
+
+    # Chi^2
+    chi2_fiber = np.zeros(nfibers)
+    chi2_prob = np.zeros(nfibers)
+    for ii in range(nfibers):
+        # Stats
+        chi2_fiber[ii] = np.sum(res_ivar*res[:,ii]) 
+        dof = np.sum(res_ivar > 0.)-1
+        chi2_prob[ii] = chisqprob(chi2_fiber[ii], dof)
+        import pdb
+        pdb.set_trace()
+
+    import pdb
+    pdb.set_trace()
+
     return SkyModel(frame.wave.copy(), cskyflux, cskyivar, mask)#, skyflux, skyvar
 
 class SkyModel(object):
