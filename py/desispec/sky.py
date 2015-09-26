@@ -172,6 +172,7 @@ def compute_sky(frame, fibermap, nsig_clipping=4.) :
     # Subtract
     res = flux - cskyflux[skyfibers] # Residuals
     res_ivar = util.combine_ivar(current_ivar, cskyivar[skyfibers]) 
+    qa_dict['SKYSUB']['N_SKYFIB'] = len(skyfibers)
 
     # Chi^2
     chi2_fiber = np.zeros(nfibers)
@@ -181,6 +182,14 @@ def compute_sky(frame, fibermap, nsig_clipping=4.) :
         chi2_fiber[ii] = np.sum(res_ivar[ii,:]*(res[ii,:]**2)) 
         dof = np.sum(res_ivar[ii,:] > 0.)
         chi2_prob[ii] = scipy.stats.chisqprob(chi2_fiber[ii], dof)
+        '''
+        if chi2_prob[ii] < 0.05:
+            chi = res_ivar[ii,:]*(res[ii,:]**2)
+            srt = np.argsort(chi)
+            xdb.xplot(chi[srt], np.cumsum(chi[srt]))
+            #xdb.xplot(frame.wave, chi)
+            xdb.set_trace()
+        '''
     # Bad models
     qa_dict['SKYSUB']['BAD_FIB'] = np.sum(chi2_prob < qa_dict['SKYSUB']['PCHI_FIB'])
 
@@ -398,6 +407,10 @@ def qa_fig_skyres(frame, fibermap, skymodel):
 
     # 
     ax0.plot([xmin,xmax], [0., 0], '--', color='gray')
+    ax0.plot([xmin,xmax], [0., 0], '--', color='gray')
+    ax0.set_xlabel('Wavelength')
+    ax0.set_ylabel('Sky Residuals (Counts)')
+    ax0.set_xlim(xmin,xmax)
     ax0.set_xlabel('Wavelength')
     ax0.set_ylabel('Sky Residuals (Counts)')
     ax0.set_xlim(xmin,xmax)
@@ -481,6 +494,7 @@ def qa_fig_skyres(frame, fibermap, skymodel):
     # Finish
     plt.tight_layout(pad=0.1,h_pad=0.0,w_pad=0.0)
     plt.savefig(outfil)
+    plt.close()
     print('Wrote QA SkyRes file: {:s}'.format(outfil))
 
 
